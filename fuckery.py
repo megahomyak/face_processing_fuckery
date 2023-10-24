@@ -1,5 +1,7 @@
-from deepface import DeepFace
+from fer import FER
 import cv2
+
+detector = FER()
 
 camera = cv2.VideoCapture(0)
 
@@ -8,18 +10,8 @@ while True:
     if not ret:
         break
     try:
-        analyzed = DeepFace.analyze(
-            frame,
-            actions=("emotion",)
-        )
+        analyzed = detector.top_emotion(frame)
     except ValueError:
         pass
     else:
-        emotions = analyzed[0]["emotion"]
-        print(emotions)
-        for emotion_name, emotion_value in emotions.items():
-            if emotion_value > 60:
-                print(emotion_name)
-            break
-        else:
-            print("No dominant emotion")
+        print(analyzed)

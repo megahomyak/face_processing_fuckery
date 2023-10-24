@@ -9,9 +9,6 @@ while True:
     ret, frame = camera.read()
     if not ret:
         break
-    try:
-        analyzed = detector.top_emotion(frame)
-    except ValueError:
-        pass
-    else:
-        print(analyzed)
+    emotion, score = detector.top_emotion(frame)
+    if emotion is not None:
+        print(emotion)

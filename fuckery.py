@@ -11,8 +11,8 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     prog="python -m is_that_you"
 )
-parser.add_argument("--volume-threshold", "-v", default=0.3, help="the amount of volume from your microphone after which the mouth will open")
-parser.add_argument("--emotion-stabilization-frames-amount", "-f", default=10, help="the amount of recent frames that are used to calculate the most frequent emotion. This is used to prevent one-off incorrect emotion recognition. Higher numbers lead to more accurate recognition, but it will take more time for the emotion to switch")
+parser.add_argument("--volume-threshold", "-v", default=15, help="the amount of volume from your microphone after which the mouth will open")
+parser.add_argument("--emotion-stabilization-frames-amount", "-esfa", default=10, help="the amount of recent frames that are used to calculate the most frequent emotion. This is used to prevent one-off incorrect emotion recognition. Higher numbers lead to more accurate recognition, but it will take more time for the emotion to switch")
 args = parser.parse_args()
 
 detector = FER()
@@ -25,10 +25,9 @@ current_emotion = "neutral"
 def update_view():
     print(current_emotion, mouth_open)
 
-def process_sound(frames):
+def process_sound(frames: numpy.ndarray):
     global last_index, mouth_open
     volume_norm = numpy.linalg.norm(frames)
-    print(volume_norm)
     if volume_norm > args.volume_threshold:
         if not mouth_open:
             mouth_open = True
@@ -41,6 +40,8 @@ def process_sound(frames):
 i = sounddevice.InputStream()
 i.start()
 
+audio_frames_per_second = i.samplerate
+
 while True:
     ret, frame = real_camera.read()
     if not ret:
@@ -52,5 +53,5 @@ while True:
         if current_emotion != probable_emotion:
             current_emotion = probable_emotion
             update_view()
-    frames, _overflowed = i.read(50)
+    frames, _overflowed = i.read(int(audio_frames_per_second * 0.1))
     process_sound(frames)

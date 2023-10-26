@@ -37,10 +37,10 @@ def process_sound(frames: numpy.ndarray):
             mouth_open = False
             update_view()
 
-i = sounddevice.InputStream()
-i.start()
+microphone_input_stream = sounddevice.InputStream()
+microphone_input_stream.start()
 
-audio_frames_per_second = i.samplerate
+audio_frames_per_second = microphone_input_stream.samplerate
 
 while True:
     ret, frame = real_camera.read()
@@ -53,5 +53,5 @@ while True:
         if current_emotion != probable_emotion:
             current_emotion = probable_emotion
             update_view()
-    frames, _overflowed = i.read(int(audio_frames_per_second * 0.1))
+    frames, _overflowed = microphone_input_stream.read(int(audio_frames_per_second * 0.1))
     process_sound(frames)

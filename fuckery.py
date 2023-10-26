@@ -25,11 +25,10 @@ current_emotion = "neutral"
 def update_view():
     print(current_emotion, mouth_open)
 
-def process_sound(frames, _frames_amount, _time, _status):
-    print(1)
+def process_sound(frames):
     global last_index, mouth_open
     volume_norm = numpy.linalg.norm(frames)
-    print(2)
+    print(volume_norm)
     if volume_norm > args.volume_threshold:
         if not mouth_open:
             mouth_open = True
@@ -39,19 +38,19 @@ def process_sound(frames, _frames_amount, _time, _status):
             mouth_open = False
             update_view()
 
-i = sounddevice.InputStream(callback=process_sound, latency=0.1)
+i = sounddevice.InputStream()
 i.start()
 
 while True:
     ret, frame = real_camera.read()
     if not ret:
         break
-    i.stop() # A workaround to prevent it from segfaulting (or having an "illegal instruction")
     emotion, score = detector.top_emotion(frame)
-    i.start()
     if emotion is not None:
         recent_emotions.append(emotion)
         probable_emotion = mode(recent_emotions)
         if current_emotion != probable_emotion:
             current_emotion = probable_emotion
             update_view()
+    frames, _overflowed = i.read(50)
+    process_sound(frames)

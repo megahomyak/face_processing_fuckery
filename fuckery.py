@@ -26,7 +26,7 @@ def update_view():
     print(current_emotion, mouth_open)
 
 def process_sound(frames: numpy.ndarray):
-    global last_index, mouth_open
+    global mouth_open
     volume_norm = numpy.linalg.norm(frames)
     if volume_norm > args.volume_threshold:
         if not mouth_open:

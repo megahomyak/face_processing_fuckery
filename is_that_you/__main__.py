@@ -9,15 +9,18 @@ import argparse
 import pyvirtualcam
 from PIL import Image
 import logging
+import threading
+import time
 
 parser = argparse.ArgumentParser(
     description="A vtuber program with emotion recognition",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     prog="python -m is_that_you"
 )
-parser.add_argument("--volume-threshold", "-v", default=15, help="the amount of volume from your microphone after which the mouth will open")
-parser.add_argument("--emotion-stabilization-frames-amount", "-esfa", default=3, help="the amount of recent frames that are used to calculate the most frequent emotion. This is used to prevent one-off incorrect emotion recognition. Higher numbers lead to more accurate recognition, but it will take more time for the emotion to switch")
-parser.add_argument("--video-capture-device-identifier", "-vcdi", default=0, help="the identifier of the camera device that will be used for capturing emotions")
+parser.add_argument("--volume-threshold", "-v", default=10, type=int, help="the amount of volume from your microphone after which the mouth will open")
+parser.add_argument("--emotion-stabilization-frames-amount", "-esfa", default=3, type=int, help="the amount of recent frames that are used to calculate the most frequent emotion. This is used to prevent one-off incorrect emotion recognition. Higher numbers lead to more accurate recognition, but it will take more time for the emotion to switch")
+parser.add_argument("--video-capture-device-identifier", "-vcdi", default=0, type=int, help="the identifier of the camera device that will be used for capturing emotions")
+parser.add_argument("--emotion-recognition-delay", "-erd", default=5, type=int, help="the delay between the frames of emotion recognition. Might help with CPU overheating")
 parser.add_argument("--device", "-d", type=str, help="the camera device to use", default=None)
 parser.add_argument("--backend", "-b", type=str, help="the camera backend to use", default=None)
 parser.add_argument("--debug", action="store_true", help="whether the debug logging is enabled or not")
@@ -82,7 +85,6 @@ with pyvirtualcam.Camera(width=width, height=height, fps=60, device=args.device,
             raise ImageNotFound
         logging.debug(f"setting the {image_name} image!")
         cam.send(image)
-        # TODO set
         last_sent_image_name = image_name
 
     def process_sound(frames: numpy.ndarray):
@@ -94,6 +96,14 @@ with pyvirtualcam.Camera(width=width, height=height, fps=60, device=args.device,
             logging.debug(f"setting the '{new_mouth_state}' mouth state!")
             current_mouth_state = new_mouth_state
             update_view_if_possible()
+
+    time_to_die = False
+    def listen_to_sound():
+        while True:
+            frames, _overflowed = microphone_input_stream.read(int(audio_frames_per_second * 0.1))
+            process_sound(frames)
+            if time_to_die:
+                break
 
     microphone_input_stream = sounddevice.InputStream()
     microphone_input_stream.start()
@@ -109,18 +119,23 @@ with pyvirtualcam.Camera(width=width, height=height, fps=60, device=args.device,
     real_camera = cv2.VideoCapture(args.video_capture_device_identifier)
     recent_emotions = deque(maxlen=args.emotion_stabilization_frames_amount)
 
-    while True:
-        ret, frame = real_camera.read()
-        if not ret:
-            break
-        emotion, score = detector.top_emotion(frame)
-        logging.debug(f"emotion: {emotion}, score: {score}")
-        if emotion is not None:
-            recent_emotions.append(emotion)
-            probable_emotion = mode(recent_emotions)
-            if current_emotion != probable_emotion:
-                logging.debug(f"setting the '{probable_emotion}' emotion!")
-                current_emotion = probable_emotion
-                update_view_if_possible()
-        frames, _overflowed = microphone_input_stream.read(int(audio_frames_per_second * 0.1))
-        process_sound(frames)
+    sound_listening_thread = threading.Thread(target=listen_to_sound)
+    sound_listening_thread.start()
+
+    try:
+        while True:
+            ret, frame = real_camera.read()
+            if not ret:
+                break
+            emotion, score = detector.top_emotion(frame)
+            logging.debug(f"emotion: {emotion}, score: {score}")
+            if emotion is not None:
+                recent_emotions.append(emotion)
+                probable_emotion = mode(recent_emotions)
+                if current_emotion != probable_emotion:
+                    logging.debug(f"setting the '{probable_emotion}' emotion!")
+                    current_emotion = probable_emotion
+                    update_view_if_possible()
+    finally:
+        time_to_die = True
+        sound_listening_thread.join()

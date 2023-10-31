@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--volume-threshold", "-v", default=10, type=int, help="the amount of volume from your microphone after which the mouth will open")
 parser.add_argument("--emotion-stabilization-frames-amount", "-esfa", default=3, type=int, help="the amount of recent frames that are used to calculate the most frequent emotion. This is used to prevent one-off incorrect emotion recognition. Higher numbers lead to more accurate recognition, but it will take more time for the emotion to switch")
 parser.add_argument("--video-capture-device-identifier", "-vcdi", default=0, type=int, help="the identifier of the camera device that will be used for capturing emotions")
-parser.add_argument("--emotion-recognition-delay", "-erd", default=5, type=int, help="the delay between the frames of emotion recognition. Might help with CPU overheating")
+parser.add_argument("--emotion-recognition-delay", "-erd", default=0, type=int, help="the delay between the frames of emotion recognition. Might help with CPU overheating")
 parser.add_argument("--device", "-d", type=str, help="the camera device to use", default=None)
 parser.add_argument("--backend", "-b", type=str, help="the camera backend to use", default=None)
 parser.add_argument("--debug", action="store_true", help="whether the debug logging is enabled or not")
@@ -136,6 +136,7 @@ with pyvirtualcam.Camera(width=width, height=height, fps=60, device=args.device,
                     logging.debug(f"setting the '{probable_emotion}' emotion!")
                     current_emotion = probable_emotion
                     update_view_if_possible()
+            time.sleep(args.emotion_recognition_delay)
     finally:
         time_to_die = True
         sound_listening_thread.join()
